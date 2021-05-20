@@ -1,4 +1,6 @@
 import json, os
+import filetype
+import base64
 from requests import Session, Response
 from hashlib import sha256
 from PyPDF2 import PdfFileReader, PdfFileWriter
@@ -95,15 +97,24 @@ class APIClient:
             print("image")
             with open(file_path, "rb") as file:
                 body = file.read()
+                kind = filetype.guess(body)
+                b64body = base64.b64encode(body).decode('ascii')
 
-                print(file_name, body[:30])
+                data = {
+                    "name": file_name,
+                    "origin": [{
+                        "name": file_name,
+                        "type": kind.mime,
+                        "data": f'data:{kind.mime};base64,{b64body}',
+                        "page": 0
+                    }]
+                }
 
-        """
-        with open(filename, "rb") as file:
-            body = file.read()
+                response = self.session.post(f'{self.base_url}/document', data=json.dumps(data), headers={'Content-Type': 'application/json'})
+                self._process_error(response)
+                obj = response.json()
+                print(file_name, kind.mime, obj.get('_id'))
 
-            print(filename, body[:30])
-        """
         return True
 
     #{"name":"IMG_6251.JPG","origin":[{"name":"IMG_6251.JPG","type":"image/jpeg","page":0,"data":"data:image/jpeg;base64,/9j/4AAQSkZJRg

@@ -1,6 +1,7 @@
 import json, os
 import filetype
 import base64
+from io import BytesIO
 from requests import Session, Response
 from hashlib import sha256
 from PyPDF2 import PdfFileReader, PdfFileWriter
@@ -93,31 +94,59 @@ class APIClient:
 
         if file_path.lower().endswith(".pdf"):
             print("PDF")
+
+            pages = []
+            pdf = PdfFileReader(file_path)
+            for page in range(pdf.getNumPages()):
+                page_handler = BytesIO()
+                pdf_writer = PdfFileWriter()
+                pdf_writer.addPage(pdf.getPage(page))
+                pdf_writer.write(page_handler)
+                pages.append(page_handler.getvalue())
+                #print('Created: {}'.format(output_filename))
+
+            for doc in self._create_doc_object(file_name, pages, split=split_pages):
+                #print(file_name, doc)
+
+                response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
+                self._process_error(response)
+                obj = response.json()
+                print(file_name, obj.get('id'))
+
         else:
             print("image")
             with open(file_path, "rb") as file:
                 body = file.read()
-                kind = filetype.guess(body)
-                b64body = base64.b64encode(body).decode('ascii')
+                for doc in self._create_doc_object(file_name, [body], split=False):
+                    #print(file_name, doc)
 
-                data = {
-                    "name": file_name,
-                    "origin": [{
-                        "name": file_name,
-                        "type": kind.mime,
-                        "data": f'data:{kind.mime};base64,{b64body}',
-                        "page": 0
-                    }]
-                }
-
-                response = self.session.post(f'{self.base_url}/document', data=json.dumps(data), headers={'Content-Type': 'application/json'})
-                self._process_error(response)
-                obj = response.json()
-                print(file_name, kind.mime, obj.get('id'))
+                    response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
+                    self._process_error(response)
+                    obj = response.json()
+                    print(file_name, obj.get('id'))
 
         return True
 
-    #{"name":"IMG_6251.JPG","origin":[{"name":"IMG_6251.JPG","type":"image/jpeg","page":0,"data":"data:image/jpeg;base64,/9j/4AAQSkZJRg
+    def _create_doc_object(self, name: str, pages: list, split=True) -> list:
+        docs = [{"name": name, "origin": []}]
+        page = 0
+        for i, body in enumerate(pages):
+            last_doc = docs[-1]
+            kind = filetype.guess(body)
+            b64body = base64.b64encode(body).decode('ascii')
+            last_doc["origin"].append({
+                "name": name,
+                "type": kind.mime,
+                "data": f'data:{kind.mime};base64,{b64body}',
+                "page": page
+            })
+
+            if split and i < len(pages) - 1:
+                docs.append({"name": name, "origin": []})
+            else:
+                page += 1
+
+        return docs
 
 
 class APIClientException(Exception):

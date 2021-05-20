@@ -14,5 +14,3 @@ with APIClient(email=email, password=password, owner_id=owner_id) as api:
     for filename in glob.glob(files_dir):
         api.upload_document(filename, type='incomingInvoice', split_pages=False)
 
-        break
-

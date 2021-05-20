@@ -113,7 +113,7 @@ class APIClient:
                 response = self.session.post(f'{self.base_url}/document', data=json.dumps(data), headers={'Content-Type': 'application/json'})
                 self._process_error(response)
                 obj = response.json()
-                print(file_name, kind.mime, obj.get('_id'))
+                print(file_name, kind.mime, obj.get('id'))
 
         return True
 

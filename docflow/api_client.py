@@ -3,7 +3,7 @@ import filetype
 import base64
 from io import BytesIO
 from requests import Session, Response
-from hashlib import sha256
+from hashlib import sha1, sha256
 from PyPDF2 import PdfFileReader, PdfFileWriter
 
 
@@ -64,6 +64,14 @@ class APIClient:
         self.current_owner_id = obj.get('currentOwnerId')
         return True
 
+    def document_hash_exists(self, hash: str) -> bool:
+        response = self.session.get(f'{self.base_url}/document/hash/{hash}', headers={'Content-Type': 'application/json'})
+        self._process_error(response)
+        obj = response.json()
+        if obj.get('success') and obj.get('document') is not False:
+            return True
+        return False
+
     def get_owners(self):
         return zip(list(map(lambda o: o['id'], self.owners)), self.owners)
 
@@ -75,7 +83,7 @@ class APIClient:
 
         return self.doctypes
 
-    def upload_document(self, file_path: str, type: str, split_pages: bool = True, owner_id: str = "") -> bool:
+    def upload_document(self, file_path: str, type: str, file_name: str = None, split_pages: bool = True, exception_if_exists: bool = False, owner_id: str = "") -> bool:
         if type not in self.get_document_types():
             raise APIClientException("Document type doesn't exists!")
 
@@ -88,15 +96,10 @@ class APIClient:
         if owner_id:
             self.change_owner(owner_id)
 
-        print(file_path, type, split_pages, self.current_owner_id)
-
-        file_name = os.path.basename(file_path)
-
+        file_name = os.path.basename(file_path) if not file_name else file_name
         if file_path.lower().endswith(".pdf"):
-            print("PDF")
-
             pages = []
-            pdf = PdfFileReader(file_path)
+            pdf = PdfFileReader(file_path, strict=False)
             for page in range(pdf.getNumPages()):
                 page_handler = BytesIO()
                 pdf_writer = PdfFileWriter()
@@ -105,7 +108,7 @@ class APIClient:
                 pages.append(page_handler.getvalue())
                 #print('Created: {}'.format(output_filename))
 
-            for doc in self._create_doc_object(file_name, pages, split=split_pages):
+            for doc in self._create_doc_object(file_name, pages, split=split_pages, exception_if_exists=exception_if_exists):
                 #print(file_name, doc)
 
                 response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
@@ -114,10 +117,9 @@ class APIClient:
                 print(file_name, obj.get('id'))
 
         else:
-            print("image")
             with open(file_path, "rb") as file:
                 body = file.read()
-                for doc in self._create_doc_object(file_name, [body], split=False):
+                for doc in self._create_doc_object(file_name, [body], split=False, exception_if_exists=exception_if_exists):
                     #print(file_name, doc)
 
                     response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
@@ -127,17 +129,24 @@ class APIClient:
 
         return True
 
-    def _create_doc_object(self, name: str, pages: list, split=True) -> list:
+    def _create_doc_object(self, name: str, pages: list, split=True, exception_if_exists=False) -> list:
         docs = [{"name": name, "origin": []}]
         page = 0
         for i, body in enumerate(pages):
             last_doc = docs[-1]
             kind = filetype.guess(body)
             b64body = base64.b64encode(body).decode('ascii')
+            b64data = f'data:{kind.mime};base64,{b64body}'
+            hash = sha1(b64data.encode('utf8')).hexdigest()
+
+            if exception_if_exists and self.document_hash_exists(hash):
+                raise APIClientFileExistsException(f'Document {name} with hash {hash} exists!')
+
             last_doc["origin"].append({
                 "name": name,
                 "type": kind.mime,
-                "data": f'data:{kind.mime};base64,{b64body}',
+                "data": b64data,
+                "hash": hash,
                 "page": page
             })
 
@@ -170,5 +179,9 @@ class APIClientException(Exception):
 
 
 class APIClientLoginException(APIClientException):
+    pass
+
+
+class APIClientFileExistsException(APIClientException):
     pass
 

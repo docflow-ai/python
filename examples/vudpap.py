@@ -1,11 +1,11 @@
-from docflow import APIClient, APIClientFileExistsException
+from docflow import APIClient, APIClientFileExistsException, APIClientDocumentException
 from io import BytesIO
 from zipfile import ZipFile
 from tempfile import NamedTemporaryFile
 import requests
 
 
-files = [
+files2 = [
     "https://vudpap.sk/wp-content/uploads/2021/02/FA-1-8-2021.zip",
     "https://vudpap.sk/wp-content/uploads/2021/03/FA-9-19-2021.zip",
     "https://vudpap.sk/wp-content/uploads/2021/03/FA-20-30-2021.zip",
@@ -51,6 +51,8 @@ files = [
     "https://vudpap.sk/wp-content/uploads/2020/02/Faktúry-NP-14-30-2020.zip",
     "https://vudpap.sk/wp-content/uploads/2020/03/Faktúry-NP-30-50-2020.zip",
     "https://vudpap.sk/wp-content/uploads/2020/03/Faktúry-NP-51-61-2020.zip",
+    ]
+files = [
     "https://vudpap.sk/wp-content/uploads/2020/04/FA-NP-62-72-2020.zip",
     "https://vudpap.sk/wp-content/uploads/2020/04/FA-NP-73-82-2020.zip",
     "https://vudpap.sk/wp-content/uploads/2020/06/Faktúry-NP-83-104-2020-fix.zip",
@@ -175,4 +177,8 @@ with APIClient(email=email, password=password, owner_id=owner_id) as api:
                         tmp.close()
                     except APIClientFileExistsException as e:
                         print(e.message)
+                    except APIClientDocumentException as e:
+                        print(e.message)
+                    except Exception as e:
+                        print(e)
 

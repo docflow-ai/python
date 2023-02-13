@@ -3,9 +3,9 @@ import glob
 
 
 files_dir = "files_novemesto/*.pdf"
-email = "branislav@vaculciak.sk"
-password = "spustiwacco"
-owner_id = "609cd3dba21b87c7152913cd"
+email = "tester@docflow.ai"
+password = "tester2022"
+owner_id = "62eb75e82962bd0fd0e626b5"
 with APIClient(email=email, password=password, owner_id=owner_id) as api:
     print(api.is_logged_in())
     print(api.get_document_types())

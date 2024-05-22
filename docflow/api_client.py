@@ -73,7 +73,7 @@ class APIClient:
                                          'type': 'api-client',
                                          'vendor': 'Docflow',
                                          'model': 'python',
-                                         'version': '0.1'
+                                         'version': '0.1.1'
                                      }),
                                      headers={'Content-Type': 'application/json', 'Token': str(token)})
 

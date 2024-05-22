@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="docflow_api",
-    version="0.1",
+    version="0.1.1",
     author="Ing. Branislav Vaculciak",
     author_email="branislav@vaculciak.sk",
     packages=setuptools.find_packages(),

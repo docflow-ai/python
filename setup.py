@@ -9,7 +9,6 @@ setuptools.setup(
     include_package_data=True,
     python_requires='>=3.9',
     install_requires=[
-        'mpi4py>=2.0',
         'bson',
         'certifi',
         'chardet',

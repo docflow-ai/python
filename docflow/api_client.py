@@ -17,15 +17,18 @@ class APIClient:
     base_url = 'https://api.docflow.ai'
     logged = False
     session = None
-    credentials = {'email': None, 'password': None}
     doctypes = []
     current_owner_id = None
     owners = []
 
-    def __init__(self, email: str, password: str, owner_id: ObjectId = None):
+    def __init__(self, email: str = None, password: str = None, token: str = None, owner_id: ObjectId = None):
         self.session = Session()
-        self.credentials = {'email': email, 'password': sha256(password.encode('utf8')).hexdigest()}
-        self.login(self.credentials)
+        if email and password:
+            self.login(email, password)
+        elif token:
+            self.login_with_token(token)
+        else:
+            APIClientException("Wrong authentication method", 500)
         if owner_id:
             self.change_owner(owner_id)
 
@@ -47,11 +50,33 @@ class APIClient:
     def is_logged_in(self):
         return self.logged
 
-    def login(self, credentials) -> bool:
+    def login(self, email: str, password: str) -> bool:
         def parse_id(o: dict) -> dict:
             o['id'] = ObjectId(o['id'])
             return o
-        response = self.session.post(f'{self.base_url}/user/login', data=json.dumps(credentials), headers={'Content-Type': 'application/json'})
+        response = self.session.post(f'{self.base_url}/user/login',
+                                     data=json.dumps({'email': email, 'password': sha256(password.encode('utf8')).hexdigest()}),
+                                     headers={'Content-Type': 'application/json'})
+        self._process_error(response)
+        self.logged = True
+        obj = response.json()
+        self.owners = list(map(parse_id, obj['user'].get('owners', [])))
+        return True
+
+    def login_with_token(self, token) -> bool:
+        def parse_id(o: dict) -> dict:
+            o['id'] = ObjectId(o['id'])
+            return o
+
+        response = self.session.post(f'{self.base_url}/user/login-by-token',
+                                     data=json.dumps({
+                                         'type': 'api-client',
+                                         'vendor': 'Docflow',
+                                         'model': 'python',
+                                         'version': '0.1'
+                                     }),
+                                     headers={'Content-Type': 'application/json', 'Token': str(token)})
+
         self._process_error(response)
         self.logged = True
         obj = response.json()
@@ -176,6 +201,11 @@ class APIClient:
 
         return True
 
+    def add_payments(self, transactions: list) -> bool:
+        response = self.session.post(f'{self.base_url}/payments', data=json.dumps(transactions), headers={'Content-Type': 'application/json'})
+        self._process_error(response)
+        return response.json()
+
     def _create_doc_object(self, name: str, pages: list, doctype: str, split=True, exception_if_exists=False) -> list:
         docs = [{"name": name, "origin": [], "documentType": doctype, "process": 0}]
         page = 0
@@ -205,5 +235,4 @@ class APIClient:
                 page += 1
 
         return docs
-
 

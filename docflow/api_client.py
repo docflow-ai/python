@@ -1,4 +1,4 @@
-import json, os
+import json, os, re
 import filetype
 import base64
 from io import BytesIO
@@ -54,8 +54,12 @@ class APIClient:
         def parse_id(o: dict) -> dict:
             o['id'] = ObjectId(o['id'])
             return o
+
+        if not re.match('^[a-f0-9]{64}$', password, re.IGNORECASE):
+            password = sha256(password.encode('utf8')).hexdigest()
+
         response = self.session.post(f'{self.base_url}/user/login',
-                                     data=json.dumps({'email': email, 'password': sha256(password.encode('utf8')).hexdigest()}),
+                                     data=json.dumps({'email': email, 'password': password}),
                                      headers={'Content-Type': 'application/json'})
         self._process_error(response)
         self.logged = True

@@ -159,8 +159,8 @@ class APIClient:
 
         return list(map(lambda o: ObjectId(o), obj.get('data'))) if obj.get('total', 0) else []
 
-    def upload_document(self, file_path: str, doctype: str, file_name: str = None, split_pages: bool = True, exception_if_exists: bool = False, owner_id: ObjectId = None) -> bool:
-        if doctype not in self.get_document_types():
+    def upload_document(self, file_path: str, doctype: str = None, file_name: str = None, tags=[], params={}, split_pages: bool = True, exception_if_exists: bool = False, owner_id: ObjectId = None) -> bool:
+        if doctype is not None and doctype not in self.get_document_types():
             raise APIClientException("Document type doesn't exists!")
 
         if not self.is_logged_in():
@@ -184,7 +184,7 @@ class APIClient:
                 pages.append(page_handler.getvalue())
                 #print('Created: {}'.format(output_filename))
 
-            for doc in self._create_doc_object(file_name, pages, doctype=doctype, split=split_pages, exception_if_exists=exception_if_exists):
+            for doc in self._create_doc_object(file_name, pages, doctype=doctype, tags=tags, params=params, split=split_pages, exception_if_exists=exception_if_exists):
                 #print(file_name, doc)
 
                 response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
@@ -195,7 +195,7 @@ class APIClient:
         else:
             with open(file_path, "rb") as file:
                 body = file.read()
-                for doc in self._create_doc_object(file_name, [body], doctype=doctype, split=False, exception_if_exists=exception_if_exists):
+                for doc in self._create_doc_object(file_name, [body], doctype=doctype, tags=tags, params=params, split=False, exception_if_exists=exception_if_exists):
                     #print(file_name, doc)
 
                     response = self.session.post(f'{self.base_url}/document', data=json.dumps(doc), headers={'Content-Type': 'application/json'})
@@ -210,8 +210,8 @@ class APIClient:
         self._process_error(response)
         return response.json()
 
-    def _create_doc_object(self, name: str, pages: list, doctype: str, split=True, exception_if_exists=False) -> list:
-        docs = [{"name": name, "origin": [], "documentType": doctype, "process": 0}]
+    def _create_doc_object(self, name: str, pages: list, doctype: str = None, tags=[], params={}, split=True, exception_if_exists=False) -> list:
+        docs = [{"name": name, "origin": [], "documentType": doctype, "tags": tags, "customParams": params, "process": 0}]
         page = 0
         for i, body in enumerate(pages):
             last_doc = docs[-1]
